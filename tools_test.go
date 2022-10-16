@@ -155,3 +155,19 @@ func TestTools_UploadeOneFile(t *testing.T) {
     //cleanup
     _ = os.Remove(fmt.Sprintf("./testdata/uploads/%s", uploadedFiles.NewFileName))
 }
+
+func TestTools_CreateDirIfNotExists(t *testing.T) {
+    var testTool Tools
+
+    err := testTool.CreateDirIfNotExists("./testdata/myDir")
+    if err != nil {
+        t.Error(err)
+    }
+
+    err = testTool.CreateDirIfNotExists("./testdata/myDir")
+    if err != nil {
+        t.Error(err)
+    }
+
+    _ = os.Remove("./testdata/myDir")
+}
