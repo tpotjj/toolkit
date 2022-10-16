@@ -106,68 +106,96 @@ func TestTools_UploadFiles(t *testing.T) {
 }
 
 func TestTools_UploadeOneFile(t *testing.T) {
-    // set up  a pipe to avoid buffering
-    pr, pw := io.Pipe()
-    writer := multipart.NewWriter(pw)
+	// set up  a pipe to avoid buffering
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
 
-    go func() {
-        defer writer.Close()
+	go func() {
+		defer writer.Close()
 
-        // create the form data field 'file'
-        part, err := writer.CreateFormFile("file", "./testdata/img.png")
-        if err != nil {
-            t.Error(err)
-        }
+		// create the form data field 'file'
+		part, err := writer.CreateFormFile("file", "./testdata/img.png")
+		if err != nil {
+			t.Error(err)
+		}
 
-        f, err := os.Open("./testdata/img.png")
-        if err != nil {
-            t.Error(err)
-        }
+		f, err := os.Open("./testdata/img.png")
+		if err != nil {
+			t.Error(err)
+		}
 
-        defer f.Close()
+		defer f.Close()
 
-        img, _, err := image.Decode(f)
-        if err != nil {
-            t.Error("error decoding image", err)
-        }
+		img, _, err := image.Decode(f)
+		if err != nil {
+			t.Error("error decoding image", err)
+		}
 
-        err = png.Encode(part, img)
-        if err != nil {
-            t.Error(err)
-        }
-    }()
+		err = png.Encode(part, img)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 
-    // read from the pipe which receives data
-    request := httptest.NewRequest("POST", "/", pr)
-    request.Header.Add("Content-Type", writer.FormDataContentType())
+	// read from the pipe which receives data
+	request := httptest.NewRequest("POST", "/", pr)
+	request.Header.Add("Content-Type", writer.FormDataContentType())
 
-    var testTools Tools
+	var testTools Tools
 
-    uploadedFiles, err := testTools.UploadOneFile(request, "./testdata/uploads/", true)
-    if err != nil {
-        t.Error(err)
-    }
+	uploadedFiles, err := testTools.UploadOneFile(request, "./testdata/uploads/", true)
+	if err != nil {
+		t.Error(err)
+	}
 
-    if _, err := os.Stat(fmt.Sprintf("./testdata/uploads/%s", uploadedFiles.NewFileName)); os.IsNotExist(err) {
-        t.Errorf("expected file to exist %s", err.Error())
-    }
+	if _, err := os.Stat(fmt.Sprintf("./testdata/uploads/%s", uploadedFiles.NewFileName)); os.IsNotExist(err) {
+		t.Errorf("expected file to exist %s", err.Error())
+	}
 
-    //cleanup
-    _ = os.Remove(fmt.Sprintf("./testdata/uploads/%s", uploadedFiles.NewFileName))
+	//cleanup
+	_ = os.Remove(fmt.Sprintf("./testdata/uploads/%s", uploadedFiles.NewFileName))
 }
 
 func TestTools_CreateDirIfNotExists(t *testing.T) {
-    var testTool Tools
+	var testTool Tools
 
-    err := testTool.CreateDirIfNotExists("./testdata/myDir")
-    if err != nil {
-        t.Error(err)
-    }
+	err := testTool.CreateDirIfNotExists("./testdata/myDir")
+	if err != nil {
+		t.Error(err)
+	}
 
-    err = testTool.CreateDirIfNotExists("./testdata/myDir")
-    if err != nil {
-        t.Error(err)
-    }
+	err = testTool.CreateDirIfNotExists("./testdata/myDir")
+	if err != nil {
+		t.Error(err)
+	}
 
-    _ = os.Remove("./testdata/myDir")
+	_ = os.Remove("./testdata/myDir")
+}
+
+var slugTests = []struct {
+	name          string
+	s             string
+	expected      string
+	errorExpected bool
+}{
+	{name: "valid string", s: "now is the time", expected: "now-is-the-time", errorExpected: false},
+	{name: "empty string", s: "", expected: "", errorExpected: true},
+	{name: "complex string", s: "Yes ! Th1s is it!", expected: "yes-th1s-is-it", errorExpected: false},
+	{name: "japanese string", s: "ゼーカー・ウェテン", expected: "", errorExpected: true},
+	{name: "japanese string + roman characters", s: "ゼーカー・ウェテン hello world", expected: "hello-world", errorExpected: false},
+}
+
+func TestTools_Slugify(t *testing.T) {
+	var testTool Tools
+
+	for _, e := range slugTests {
+		slug, err := testTool.Slugify(e.s)
+		if err != nil && !e.errorExpected {
+			t.Errorf("%s: error received when none expected: %s", e.name, err.Error())
+		}
+
+		if !e.errorExpected && slug != e.expected {
+			t.Errorf("%s: wrong slug returned; expected %s but got %s", e.name, e.expected, slug)
+		}
+	}
 }
